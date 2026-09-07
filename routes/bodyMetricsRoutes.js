@@ -12,11 +12,25 @@ router.post('/:userId', authMiddleware, requireRole('trainer'), async (req, res)
   ]);
   if (!owned.length) return res.status(403).json({ error: 'Sin acceso a este usuario' });
 
-  const { height_cm, weight_kg, body_fat_pct, recorded_date } = req.body;
+  const { height_cm, weight_kg, body_fat_pct, chest_cm, waist_cm, arm_left_cm, arm_right_cm, leg_left_cm, leg_right_cm, recorded_date } = req.body;
   const { rows } = await query(
-    `INSERT INTO body_metrics (user_id, trainer_id, height_cm, weight_kg, body_fat_pct, recorded_date)
-     VALUES ($1, $2, $3, $4, $5, COALESCE($6, CURRENT_DATE)) RETURNING *`,
-    [req.params.userId, req.user.id, height_cm || null, weight_kg || null, body_fat_pct || null, recorded_date]
+    `INSERT INTO body_metrics
+       (user_id, trainer_id, height_cm, weight_kg, body_fat_pct, chest_cm, waist_cm, arm_left_cm, arm_right_cm, leg_left_cm, leg_right_cm, recorded_date)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, COALESCE($12, CURRENT_DATE)) RETURNING *`,
+    [
+      req.params.userId,
+      req.user.id,
+      height_cm || null,
+      weight_kg || null,
+      body_fat_pct || null,
+      chest_cm || null,
+      waist_cm || null,
+      arm_left_cm || null,
+      arm_right_cm || null,
+      leg_left_cm || null,
+      leg_right_cm || null,
+      recorded_date,
+    ]
   );
   res.status(201).json(rows[0]);
 });

@@ -3,6 +3,7 @@ import { query } from '../db.js';
 import { authMiddleware } from '../auth.js';
 import { sendToUser } from '../wsHub.js';
 import { cleanupOldMessages } from '../cleanup.js';
+import { sendPushToUser } from '../push.js';
 
 const router = Router();
 
@@ -43,6 +44,11 @@ router.post('/:otherUserId', authMiddleware, async (req, res) => {
     [req.params.otherUserId, req.user.id, `${req.user.name} te envió un mensaje`]
   );
   sendToUser(Number(req.params.otherUserId), { event: 'notification', data: notif[0] });
+  sendPushToUser(Number(req.params.otherUserId), {
+    title: 'Kyntra',
+    body: notif[0].message,
+    url: '/',
+  });
 
   res.status(201).json(message);
 });

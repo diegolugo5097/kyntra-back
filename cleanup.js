@@ -6,10 +6,12 @@ const MESSAGE_TTL_INTERVAL = '24 hours';
 const MEDIA_TTL_INTERVAL = '30 days';
 
 export async function cleanupOldMessages() {
+  // Solo se borran los mensajes que YA fueron leídos por el destinatario y tienen más de 24h.
+  // Un mensaje sin leer nunca se borra por antigüedad, se queda hasta que lo lean.
   const { rowCount } = await query(
-    `DELETE FROM messages WHERE created_at < now() - interval '${MESSAGE_TTL_INTERVAL}'`
+    `DELETE FROM messages WHERE is_read = TRUE AND created_at < now() - interval '${MESSAGE_TTL_INTERVAL}'`
   );
-  if (rowCount) console.log(`🧹 ${rowCount} mensaje(s) de más de 24h eliminados`);
+  if (rowCount) console.log(`🧹 ${rowCount} mensaje(s) leído(s) y de más de 24h eliminados`);
 }
 
 export async function cleanupOldMedia() {

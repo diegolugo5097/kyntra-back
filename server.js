@@ -14,6 +14,7 @@ import mediaRoutes from './routes/mediaRoutes.js';
 import chatRoutes from './routes/chatRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import bodyMetricsRoutes from './routes/bodyMetricsRoutes.js';
+import pushRoutes from './routes/pushRoutes.js';
 
 dotenv.config();
 
@@ -28,6 +29,7 @@ app.use('/api/media', mediaRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/body-metrics', bodyMetricsRoutes);
+app.use('/api/push', pushRoutes);
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
 

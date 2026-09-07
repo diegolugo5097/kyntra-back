@@ -2,6 +2,7 @@ import { Router } from 'express';
 import crypto from 'crypto';
 import { query } from '../db.js';
 import { hashPassword, authMiddleware, requireRole } from '../auth.js';
+import { cloudinary } from '../cloudinary.js';
 
 const router = Router();
 
@@ -45,6 +46,53 @@ router.get('/:id', authMiddleware, requireRole('trainer'), async (req, res) => {
   );
   if (!rows[0]) return res.status(404).json({ error: 'Usuario no encontrado' });
   res.json(rows[0]);
+});
+
+// PUT /api/users/:id/reset-password — el entrenador genera una nueva contraseña temporal para un usuario
+// (equivalente a un "olvidé mi contraseña" mediado por el entrenador, ya que no hay registro/email público)
+router.put('/:id/reset-password', authMiddleware, requireRole('trainer'), async (req, res) => {
+  const { rows: owned } = await query('SELECT id, name, email FROM users WHERE id = $1 AND trainer_id = $2', [
+    req.params.id,
+    req.user.id,
+  ]);
+  if (!owned.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const tempPassword = crypto.randomBytes(4).toString('hex');
+  const passwordHash = await hashPassword(tempPassword);
+  await query('UPDATE users SET password_hash = $1, must_change_password = TRUE WHERE id = $2', [
+    passwordHash,
+    req.params.id,
+  ]);
+
+  res.json({ user: owned[0], temp_password: tempPassword });
+});
+
+// DELETE /api/users/:id — el entrenador elimina la cuenta de un usuario y todo lo asociado
+// (rutina, registros, medidas, chat, notificaciones se borran en cascada desde la base de datos;
+// aquí solo nos encargamos de limpiar los archivos reales en Cloudinary antes de borrar el usuario)
+router.delete('/:id', authMiddleware, requireRole('trainer'), async (req, res) => {
+  const { rows: owned } = await query('SELECT id, name FROM users WHERE id = $1 AND trainer_id = $2', [
+    req.params.id,
+    req.user.id,
+  ]);
+  if (!owned.length) return res.status(404).json({ error: 'Usuario no encontrado' });
+
+  const { rows: media } = await query(
+    'SELECT cloudinary_public_id, media_type FROM media_uploads WHERE user_id = $1',
+    [req.params.id]
+  );
+  for (const m of media) {
+    try {
+      await cloudinary.uploader.destroy(m.cloudinary_public_id, {
+        resource_type: m.media_type === 'video' ? 'video' : 'image',
+      });
+    } catch (err) {
+      console.error('❌ Error borrando evidencia de Cloudinary al eliminar usuario:', err?.message || err);
+    }
+  }
+
+  await query('DELETE FROM users WHERE id = $1', [req.params.id]);
+  res.json({ ok: true });
 });
 
 export default router;

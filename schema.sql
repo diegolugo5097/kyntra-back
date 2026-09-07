@@ -72,7 +72,8 @@ CREATE TABLE IF NOT EXISTS media_uploads (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- Medidas corporales: el entrenador las registra periódicamente, queda un historial por fecha
+-- Medidas corporales: el entrenador las registra periódicamente, queda un historial por fecha.
+-- Todos los campos son opcionales salvo la fecha.
 CREATE TABLE IF NOT EXISTS body_metrics (
   id SERIAL PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -80,9 +81,30 @@ CREATE TABLE IF NOT EXISTS body_metrics (
   height_cm NUMERIC(5,1),
   weight_kg NUMERIC(6,2),
   body_fat_pct NUMERIC(4,1),
+  chest_cm NUMERIC(5,1),        -- pecho
+  waist_cm NUMERIC(5,1),        -- torso/cintura
+  arm_left_cm NUMERIC(5,1),     -- brazo izquierdo
+  arm_right_cm NUMERIC(5,1),    -- brazo derecho
+  leg_left_cm NUMERIC(5,1),     -- pierna izquierda
+  leg_right_cm NUMERIC(5,1),    -- pierna derecha
   recorded_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Migración: por si la tabla ya existía sin estas columnas
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS chest_cm NUMERIC(5,1);
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS waist_cm NUMERIC(5,1);
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS arm_cm NUMERIC(5,1);   -- columna vieja, ya no se usa
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS leg_cm NUMERIC(5,1);   -- columna vieja, ya no se usa
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS arm_left_cm NUMERIC(5,1);
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS arm_right_cm NUMERIC(5,1);
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS leg_left_cm NUMERIC(5,1);
+ALTER TABLE body_metrics ADD COLUMN IF NOT EXISTS leg_right_cm NUMERIC(5,1);
+
+-- Migración de datos: si ya habías guardado una sola medida de brazo/pierna, la pasamos al lado
+-- izquierdo para no perderla (puedes editarla después si quieres separar los valores reales)
+UPDATE body_metrics SET arm_left_cm = arm_cm WHERE arm_cm IS NOT NULL AND arm_left_cm IS NULL;
+UPDATE body_metrics SET leg_left_cm = leg_cm WHERE leg_cm IS NOT NULL AND leg_left_cm IS NULL;
 
 -- Notificaciones (ej: al entrenador cuando el usuario sube algo)
 CREATE TABLE IF NOT EXISTS notifications (
@@ -106,6 +128,16 @@ CREATE TABLE IF NOT EXISTS messages (
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
+-- Suscripciones de notificaciones push (una por navegador/dispositivo en el que el usuario las active)
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT UNIQUE NOT NULL,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
 CREATE INDEX IF NOT EXISTS idx_routine_days_user ON routine_days(user_id);
 CREATE INDEX IF NOT EXISTS idx_exercises_day ON exercises(day_id);
 CREATE INDEX IF NOT EXISTS idx_logs_exercise ON exercise_logs(exercise_id);
@@ -114,3 +146,4 @@ CREATE INDEX IF NOT EXISTS idx_media_user ON media_uploads(user_id);
 CREATE INDEX IF NOT EXISTS idx_body_metrics_user ON body_metrics(user_id, recorded_date DESC);
 CREATE INDEX IF NOT EXISTS idx_notifications_recipient ON notifications(recipient_id, is_read);
 CREATE INDEX IF NOT EXISTS idx_messages_pair ON messages(sender_id, receiver_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_push_subs_user ON push_subscriptions(user_id);

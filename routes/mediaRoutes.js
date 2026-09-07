@@ -4,6 +4,7 @@ import { authMiddleware, requireRole } from '../auth.js';
 import { upload, cloudinary, uploadBufferToCloudinary } from '../cloudinary.js';
 import { sendToUser } from '../wsHub.js';
 import { cleanupOldMedia } from '../cleanup.js';
+import { sendPushToUser } from '../push.js';
 
 const router = Router();
 
@@ -42,6 +43,11 @@ router.post('/upload', authMiddleware, requireRole('user'), upload.single('file'
       [trainerId, req.user.id, `${req.user.name} subió un ${mediaType === 'video' ? 'video' : 'una foto'} de su rutina`, upload_row.id]
     );
     sendToUser(trainerId, { event: 'notification', data: notif[0] });
+    sendPushToUser(trainerId, {
+      title: 'Kyntra',
+      body: notif[0].message,
+      url: '/',
+    });
   }
 
   res.status(201).json(upload_row);
@@ -77,6 +83,11 @@ router.put('/:id/observation', authMiddleware, requireRole('trainer'), async (re
     [media.user_id, req.user.id, 'Tu entrenador dejó una observación en tu rutina', media.id]
   );
   sendToUser(media.user_id, { event: 'notification', data: notif[0] });
+  sendPushToUser(media.user_id, {
+    title: 'Kyntra',
+    body: notif[0].message,
+    url: '/',
+  });
 
   res.json(media);
 });

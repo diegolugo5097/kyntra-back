@@ -106,4 +106,22 @@ router.get('/exercises/:exerciseId/logs', authMiddleware, async (req, res) => {
   res.json(rows);
 });
 
+// PUT /api/routines/logs/:logId — el usuario edita una serie que ya había registrado
+router.put('/logs/:logId', authMiddleware, requireRole('user'), async (req, res) => {
+  const { weight_kg, reps, rir } = req.body;
+  const { rows } = await query(
+    `UPDATE exercise_logs SET weight_kg=$1, reps=$2, rir=$3
+     WHERE id=$4 AND user_id=$5 RETURNING *`,
+    [weight_kg ?? null, reps ?? null, rir ?? null, req.params.logId, req.user.id]
+  );
+  if (!rows.length) return res.status(404).json({ error: 'Registro no encontrado' });
+  res.json(rows[0]);
+});
+
+// DELETE /api/routines/logs/:logId — el usuario borra una serie que había registrado
+router.delete('/logs/:logId', authMiddleware, requireRole('user'), async (req, res) => {
+  await query('DELETE FROM exercise_logs WHERE id = $1 AND user_id = $2', [req.params.logId, req.user.id]);
+  res.json({ ok: true });
+});
+
 export default router;
